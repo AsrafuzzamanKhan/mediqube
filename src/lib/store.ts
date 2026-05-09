@@ -36,6 +36,8 @@ export const authAPI = {
   register: (d: any) => api.post('/auth/register', d),
   me: () => api.get('/auth/me'),
   password: (d: any) => api.put('/auth/password', d),
+  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) => api.post(`/auth/reset-password/${token}`, { password }),
 };
 export const doctorAPI = {
   getAll: (p?: any) => api.get('/doctors', { params: p }),

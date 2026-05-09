@@ -128,6 +128,9 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+            <div className="flex justify-end">
+              <Link href="/forgot-password" className="text-xs text-brand hover:underline">Forgot password?</Link>
+            </div>
             <button type="submit" disabled={loading || !!demoLoading} className="btn-primary w-full py-3">
               {loading ? <><span className="spin" /> Signing in…</> : 'Sign In'}
             </button>
