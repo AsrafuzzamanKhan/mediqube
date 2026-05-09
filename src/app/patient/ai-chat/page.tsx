@@ -3,11 +3,20 @@ import { useState, useRef } from 'react';
 import RouteGuard from '@/components/RouteGuard';
 import DashboardLayout from '@/components/DashboardLayout';
 import { aiAPI, doctorAPI } from '@/lib/store';
-import { Bot, User, Send, FileText, Stethoscope, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { Bot, User, Send, FileText, Stethoscope, AlertCircle, CheckCircle, ArrowRight, Upload, X, ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function AIChatPage() {
   const [tab, setTab] = useState<'chat' | 'upload'>('chat');
@@ -49,19 +58,85 @@ export default function AIChatPage() {
   const [suggestedDoctors, setSuggestedDoctors] = useState<any[]>([]);
 
   // ── Upload state ───────────────────────────────────────
-  const [text, setText]       = useState('');
-  const [analysing, setAnalysing] = useState(false);
-  const [result, setResult]   = useState<any>(null);
+  const [text, setText]             = useState('');
+  const [analysing, setAnalysing]   = useState(false);
+  const [result, setResult]         = useState<any>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview]   = useState<string>('');
+  const [dragging, setDragging]         = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const processFile = (file: File) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      toast.error('Unsupported file type. Please upload JPG, PNG, WEBP, or PDF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File too large — max 10 MB');
+      return;
+    }
+    setUploadedFile(file);
+    setResult(null);
+    setText('');
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = e => setFilePreview(e.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview('');
+    }
+  };
+
+  const clearFile = () => {
+    setUploadedFile(null);
+    setFilePreview('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
+  const handleDragLeave = () => setDragging(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  };
 
   const analyse = async () => {
-    if (!text.trim()) { toast.error('Please paste some prescription text first'); return; }
+    if (!text.trim() && !uploadedFile) {
+      toast.error('Please paste prescription text or upload an image/PDF');
+      return;
+    }
     setAnalysing(true);
     try {
-      const res = await aiAPI.analyse({ text });
+      let payload: Record<string, string> = {};
+
+      if (uploadedFile) {
+        const dataUrl = await fileToBase64(uploadedFile);
+        const base64  = dataUrl.split(',')[1];
+        if (uploadedFile.type === 'application/pdf') {
+          payload = { pdfBase64: base64 };
+        } else {
+          payload = { imageBase64: base64, mimeType: uploadedFile.type };
+        }
+      } else {
+        payload = { text };
+      }
+
+      const res = await aiAPI.analyse(payload);
       setResult(res.data.data);
       toast.success('Prescription analysed!');
-    } catch { toast.error('Analysis failed. Check your Groq API key.'); }
-    finally { setAnalysing(false); }
+    } catch {
+      toast.error('Analysis failed. Check your Groq API key.');
+    } finally {
+      setAnalysing(false);
+    }
   };
 
   const urgencyConfig: Record<string, { badge: string; icon: any; text: string }> = {
@@ -76,7 +151,7 @@ export default function AIChatPage() {
         <div className="space-y-6">
           <div className="page-header">
             <h1 className="page-title flex items-center gap-2"><Bot className="text-brand" size={24} /> AI Health Assistant</h1>
-            <p className="page-sub">Describe your symptoms or paste a prescription to find the right specialist</p>
+            <p className="page-sub">Describe your symptoms or upload a prescription to find the right specialist</p>
           </div>
 
           {/* Tabs */}
@@ -93,7 +168,6 @@ export default function AIChatPage() {
           {tab === 'chat' && (
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 bg-white rounded-2xl shadow-card border border-gray-100 flex flex-col" style={{ height: 520 }}>
-                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {messages.map((m, i) => (
                     <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -116,7 +190,6 @@ export default function AIChatPage() {
                   <div ref={chatEnd} />
                 </div>
 
-                {/* Input */}
                 <div className="p-4 border-t border-gray-100 flex gap-2">
                   <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMsg()}
                     placeholder="Describe your symptoms e.g. chest pain, shortness of breath…"
@@ -169,21 +242,107 @@ export default function AIChatPage() {
           {tab === 'upload' && (
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
-                <h2 className="font-semibold text-gray-900 mb-1">Paste Prescription Text</h2>
-                <p className="text-sm text-gray-500 mb-4">Copy text from your prescription or type your diagnosis notes — AI will identify the right specialist for you</p>
-                <textarea value={text} onChange={e => setText(e.target.value)} rows={10}
+                <h2 className="font-semibold text-gray-900 mb-1">Upload or Paste Prescription</h2>
+                <p className="text-sm text-gray-500 mb-4">Upload a prescription image or PDF — AI will read it, identify the conditions, and suggest the right specialist for you</p>
+
+                {/* ── File drop zone ── */}
+                <div
+                  className={`relative border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors mb-4 ${
+                    dragging
+                      ? 'border-brand bg-brand/5'
+                      : uploadedFile
+                      ? 'border-green-400 bg-green-50'
+                      : 'border-gray-200 hover:border-brand hover:bg-gray-50'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => !uploadedFile && fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  {uploadedFile ? (
+                    <div className="space-y-2">
+                      {filePreview ? (
+                        <img src={filePreview} alt="Prescription preview" className="max-h-44 mx-auto rounded-lg object-contain shadow-sm" />
+                      ) : (
+                        <div className="w-14 h-14 mx-auto bg-red-50 rounded-xl flex items-center justify-center">
+                          <FileText size={26} className="text-red-400" />
+                        </div>
+                      )}
+                      <p className="text-sm font-medium text-gray-700 truncate">{uploadedFile.name}</p>
+                      <p className="text-xs text-gray-400">{(uploadedFile.size / 1024).toFixed(0)} KB · {uploadedFile.type.includes('pdf') ? 'PDF' : 'Image'}</p>
+                      <button
+                        onClick={e => { e.stopPropagation(); clearFile(); }}
+                        className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        <X size={12} /> Remove file
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 py-2">
+                      <div className="flex justify-center gap-3 mb-1">
+                        <ImageIcon size={28} className="text-gray-300" />
+                        <FileText size={28} className="text-gray-300" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-600">
+                        {dragging ? 'Drop it here!' : 'Drop file here or click to browse'}
+                      </p>
+                      <p className="text-xs text-gray-400">JPG · PNG · WEBP · PDF &nbsp;—&nbsp; max 10 MB</p>
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors"
+                      >
+                        <Upload size={13} /> Choose file
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── OR divider ── */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs text-gray-400 font-medium">OR paste text</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+
+                {/* ── Text fallback ── */}
+                <textarea
+                  value={text}
+                  onChange={e => { setText(e.target.value); if (e.target.value) clearFile(); }}
+                  rows={5}
+                  disabled={!!uploadedFile}
                   placeholder="e.g. Patient presents with recurring chest pain and shortness of breath on exertion. ECG shows ST changes. Referred for cardiology review. Medications: Aspirin 100mg daily, Metoprolol 25mg BD..."
-                  className="input resize-none" />
-                <button onClick={analyse} disabled={analysing || !text.trim()} className="btn-primary w-full mt-4 py-3">
-                  {analysing ? <><span className="spin" /> Analysing with AI…</> : <><Bot size={16} /> Analyse & Find Specialist</>}
+                  className={`input resize-none ${uploadedFile ? 'opacity-40 cursor-not-allowed' : ''}`}
+                />
+
+                <button
+                  onClick={analyse}
+                  disabled={analysing || (!text.trim() && !uploadedFile)}
+                  className="btn-primary w-full mt-4 py-3"
+                >
+                  {analysing
+                    ? <><span className="spin" /> Analysing with AI…</>
+                    : <><Bot size={16} /> Analyse & Find Specialist</>}
                 </button>
               </div>
 
-              {/* Result */}
+              {/* ── Results panel ── */}
               <div className="bg-white rounded-2xl shadow-card border border-gray-100 p-6">
                 {!result ? (
                   <div className="h-full flex items-center justify-center text-center text-gray-400 py-12">
-                    <div><FileText size={40} className="mx-auto mb-3 opacity-30" /><p className="font-medium">Analysis results will appear here</p><p className="text-sm mt-1">Paste prescription text and click Analyse</p></div>
+                    <div>
+                      <FileText size={40} className="mx-auto mb-3 opacity-30" />
+                      <p className="font-medium">Analysis results will appear here</p>
+                      <p className="text-sm mt-1">Upload a prescription image/PDF or paste text, then click Analyse</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -235,7 +394,7 @@ export default function AIChatPage() {
                                 <p className="font-medium text-sm text-gray-900">Dr. {d.user?.name}</p>
                                 <p className="text-xs text-gray-500">{d.specialties?.slice(0, 2).join(', ')}</p>
                               </div>
-                              <Link href={`/patient/find-doctor?specialty=${encodeURIComponent(result.recommendedSpecialty)}`}
+                              <Link href={`/patient/find-doctor?book=${d._id}`}
                                 className="btn-primary text-xs py-1.5 px-3">Book</Link>
                             </div>
                           ))}
