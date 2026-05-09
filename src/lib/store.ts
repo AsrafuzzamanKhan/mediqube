@@ -41,6 +41,7 @@ export const doctorAPI = {
   getAll: (p?: any) => api.get('/doctors', { params: p }),
   getOne: (id: string) => api.get(`/doctors/${id}`),
   specialties: () => api.get('/doctors/specialties'),
+  suggestions: (q: string) => api.get('/doctors/suggestions', { params: { q } }),
   myProfile: () => api.get('/doctors/me'),
   updateMe: (d: any) => api.put('/doctors/me', d),
 };
@@ -53,6 +54,12 @@ export const apptAPI = {
   cancel: (id: string) => api.put(`/appointments/${id}/cancel`),
   dashboard: () => api.get('/appointments/doctor/dashboard'),
   adminAll: (p?: any) => api.get('/appointments/admin/all', { params: p }),
+  getDoctorDashboard: function () {
+    return this.dashboard();
+  },
+  bookAppointment: function (d: any) {
+    return this.book(d);
+  },
 };
 export const adminAPI = {
   stats: () => api.get('/admin/stats'),
@@ -61,6 +68,18 @@ export const adminAPI = {
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
   doctors: () => api.get('/admin/doctors'),
   approve: (id: string, d: any) => api.put(`/admin/doctors/${id}/approve`, d),
+  getStats: function () {
+    return this.stats();
+  },
+  updateUserAdmin: function (id: string, d: any) {
+    return this.updateUser(id, d);
+  },
+  deleteUserAdmin: function (id: string) {
+    return this.deleteUser(id);
+  },
+  approveDoctor: function (id: string, d: any) {
+    return this.approve(id, d);
+  },
 };
 export const faqAPI = {
   getAll: (p?: any) => api.get('/faq', { params: p }),
@@ -95,14 +114,3 @@ export const userAPI = {
 
 // Alias for backward compatibility
 export const useAuthStore = useAuth;
-
-// ── Method aliases so pages work regardless of naming ──────
-// apptAPI aliases
-apptAPI.getDoctorDashboard = apptAPI.dashboard;
-apptAPI.bookAppointment = apptAPI.book;
-
-// adminAPI aliases
-adminAPI.getStats = adminAPI.stats;
-adminAPI.updateUserAdmin = adminAPI.updateUser;
-adminAPI.deleteUserAdmin = adminAPI.deleteUser;
-adminAPI.approveDoctor = adminAPI.approve;

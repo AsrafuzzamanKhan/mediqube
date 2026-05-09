@@ -1,9 +1,9 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import RouteGuard from '@/components/RouteGuard';
 import DashboardLayout from '@/components/DashboardLayout';
 import { aiAPI, doctorAPI } from '@/lib/store';
-import { Bot, User, Send, Upload, FileText, Stethoscope, AlertCircle, CheckCircle, ArrowRight, X } from 'lucide-react';
+import { Bot, User, Send, FileText, Stethoscope, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
@@ -31,8 +31,13 @@ export default function AIChatPage() {
     setSending(true);
     scrollDown();
     try {
-      const res = await aiAPI.chat({ messages: history.slice(-10) });
+      const res = await aiAPI.chat({ messages: history.slice(-10), message: userMsg.content });
       setMessages([...history, { role: 'assistant', content: res.data.data.reply }]);
+      const specialty = res.data.data.suggestedSpecialty;
+      if (specialty) {
+        setSuggestedSpecialty(specialty);
+        doctorAPI.getAll({ specialty, limit: 3 }).then(r => setSuggestedDoctors(r.data.data)).catch(() => {});
+      }
       scrollDown();
     } catch {
       toast.error('AI unavailable. Check your GROQ_API_KEY in backend/.env');
@@ -40,20 +45,8 @@ export default function AIChatPage() {
     } finally { setSending(false); }
   };
 
-  // Extract specialty from last AI message and search doctors
   const [suggestedSpecialty, setSuggestedSpecialty] = useState('');
   const [suggestedDoctors, setSuggestedDoctors] = useState<any[]>([]);
-
-  useEffect(() => {
-    const last = messages.filter(m => m.role === 'assistant').slice(-1)[0];
-    if (!last) return;
-    const match = last.content.match(/I recommend seeing a:\s*([A-Za-z\s]+)/i);
-    if (match) {
-      const specialty = match[1].trim();
-      setSuggestedSpecialty(specialty);
-      doctorAPI.getAll({ specialty, limit: 3 }).then(r => setSuggestedDoctors(r.data.data)).catch(() => {});
-    }
-  }, [messages]);
 
   // ── Upload state ───────────────────────────────────────
   const [text, setText]       = useState('');
@@ -149,13 +142,16 @@ export default function AIChatPage() {
                       <p className="text-sm text-gray-400">No {suggestedSpecialty} doctors available right now.</p>
                     ) : suggestedDoctors.map(d => (
                       <div key={d._id} className="border border-gray-100 rounded-xl p-3 hover:border-brand transition-colors">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold text-sm">{d.user?.name?.[0]}</div>
-                          <div><p className="font-medium text-gray-900 text-sm">Dr. {d.user?.name}</p><p className="text-xs text-gray-500">{d.experience} yrs · ⭐ {d.rating}</p></div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold text-sm flex-shrink-0">{d.user?.name?.[0]}</div>
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">Dr. {d.user?.name}</p>
+                            <p className="text-xs text-gray-500">{d.specialties?.slice(0,2).join(', ')} · ⭐ {d.rating}</p>
+                          </div>
                         </div>
-                        <Link href={`/patient/find-doctor?specialty=${encodeURIComponent(suggestedSpecialty)}`}
-                          className="mt-2 flex items-center gap-1 text-xs text-brand font-semibold hover:underline">
-                          Book Appointment <ArrowRight size={11} />
+                        <Link href={`/patient/find-doctor?book=${d._id}`}
+                          className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand/90 transition-colors">
+                          Book Now <ArrowRight size={11} />
                         </Link>
                       </div>
                     ))}

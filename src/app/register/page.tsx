@@ -1,8 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, authAPI } from '@/lib/store';
+import { authAPI } from '@/lib/store';
 import { HeartPulse, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -10,8 +9,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '', phone: '', role: 'patient' });
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuth();
-  const router = useRouter();
+  const [done, setDone] = useState(false);
   const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
 
   const submit = async (e: React.FormEvent) => {
@@ -20,14 +18,25 @@ export default function RegisterPage() {
     if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     setLoading(true);
     try {
-      const { data } = await authAPI.register(form);
-      setUser(data.data);
-      toast.success('Account created!');
-      router.push(`/${data.data.role}`);
+      await authAPI.register(form);
+      setDone(true);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Registration failed');
     } finally { setLoading(false); }
   };
+
+  if (done) return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-teal-50 flex items-center justify-center p-4">
+      <div className="card shadow-lg w-full max-w-sm text-center p-8">
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <Mail className="w-8 h-8 text-brand" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Check your email</h2>
+        <p className="text-gray-500 text-sm mb-6">We sent a verification link to <b>{form.email}</b>. Click it to activate your account.</p>
+        <Link href="/login" className="btn-primary w-full py-3 block text-center">Go to Login</Link>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-teal-50 flex items-center justify-center p-4">
