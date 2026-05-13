@@ -31,8 +31,8 @@ export default function RegisterPage() {
         <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
           <Mail className="w-8 h-8 text-brand" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Check your email</h2>
-        <p className="text-gray-500 text-sm mb-6">We sent a verification link to <b>{form.email}</b>. Click it to activate your account.</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Account created!</h2>
+        <p className="text-gray-500 text-sm mb-6">Your account has been created successfully. You can now sign in.</p>
         <Link href="/login" className="btn-primary w-full py-3 block text-center">Go to Login</Link>
       </div>
     </div>

@@ -34,7 +34,7 @@ function Content() {
     const t = setTimeout(() => {
       doctorAPI.suggestions(inputValue)
         .then(r => { setSuggestions(r.data.data); setShowSuggestions(true); })
-        .catch(() => {});
+        .catch(() => { });
     }, 300);
     return () => clearTimeout(t);
   }, [inputValue]);
@@ -174,7 +174,7 @@ function Content() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <div><h2 className="font-bold text-gray-900">Book Appointment</h2><p className="text-sm text-gray-500">Dr. {selected.user?.name}</p></div>
+              <div><h2 className="font-bold text-gray-900">Book Appointment</h2><p className="text-sm text-gray-500"> {selected.user?.name}</p></div>
               <button onClick={() => setSelected(null)} className="p-2 hover:bg-gray-100 rounded-xl"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">

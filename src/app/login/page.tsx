@@ -78,7 +78,7 @@ export default function LoginPage() {
         </div>
 
         {/* Demo quick login */}
-        {/* <div className="card shadow-lg mb-4">
+        <div className="card shadow-lg mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Zap size={14} className="text-amber-500" />
             <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">One-Click Demo Login</p>
@@ -96,7 +96,7 @@ export default function LoginPage() {
             ))}
           </div>
           <p className="text-center text-xs text-gray-400 mt-2">Click once — logs you in instantly ⚡</p>
-        </div> */}
+        </div>
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-4">

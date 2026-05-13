@@ -20,11 +20,38 @@ export function DoctorAppts() {
   const [appts, setAppts] = useState<any[]>([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const [rejectTarget, setRejectTarget] = useState<{ id: string; patientName: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   const load = () => { setLoading(true); apptAPI.getMy({ status }).then(r => setAppts(r.data.data)).finally(() => setLoading(false)); };
   useEffect(() => { load(); }, [status]);
+
   const updateStatus = async (id: string, s: string, reason?: string) => {
     try { await apptAPI.updateStatus(id, { status: s, rejectionReason: reason }); toast.success(`Appointment ${s}`); load(); } catch { toast.error('Failed'); }
   };
+
+  const openReject = (id: string, patientName: string) => { setRejectTarget({ id, patientName }); setRejectReason(''); };
+  const closeReject = () => { setRejectTarget(null); setRejectReason(''); };
+
+  const approveInstead = async () => {
+    if (!rejectTarget) return;
+    setSubmitting(true);
+    await updateStatus(rejectTarget.id, 'approved');
+    setSubmitting(false);
+    closeReject();
+  };
+
+  const confirmReject = async () => {
+    if (!rejectTarget || !rejectReason.trim()) return;
+    setSubmitting(true);
+    await updateStatus(rejectTarget.id, 'rejected', rejectReason.trim());
+    setSubmitting(false);
+    closeReject();
+  };
+
+  const hasReason = rejectReason.trim().length > 0;
+
   return (
     <RouteGuard allowedRoles={['doctor']}><DashboardLayout role="doctor">
       <div className="space-y-5">
@@ -47,7 +74,7 @@ export function DoctorAppts() {
                 <span className={`badge ${SC[a.status]}`}>{a.status}</span>
                 {a.status === 'pending' && <>
                   <button onClick={() => updateStatus(a._id, 'approved')} className="btn-green text-xs py-1 px-2">Approve</button>
-                  <button onClick={() => { const r = prompt('Rejection reason (optional):'); updateStatus(a._id, 'rejected', r || ''); }} className="btn-red text-xs py-1 px-2">Reject</button>
+                  <button onClick={() => openReject(a._id, a.patient?.name)} className="btn-red text-xs py-1 px-2">Reject</button>
                 </>}
                 <Link href={`/doctor/appointments/${a._id}`} className="btn-outline text-xs py-1 px-2"><FileText size={12} /></Link>
               </div>
@@ -55,6 +82,62 @@ export function DoctorAppts() {
           ))}</div>
         }
       </div>
+
+      {/* Rejection modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={closeReject}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-900">Reject Appointment</h2>
+                <p className="text-sm text-gray-400 mt-0.5">Patient: {rejectTarget.patientName}</p>
+              </div>
+              <button onClick={closeReject} className="p-2 hover:bg-gray-100 rounded-xl"><X size={18} /></button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+                ⚠️ The patient will receive an email only after you confirm. You must provide a reason before submitting.
+              </div>
+
+              <div>
+                <label className="label">Reason for rejection <span className="text-red-500">*</span></label>
+                <textarea
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  rows={4}
+                  placeholder="e.g. Schedule conflict on that date. Not available for video consultations this week…"
+                  className="input resize-none"
+                  autoFocus
+                />
+                {!hasReason && (
+                  <p className="text-xs text-red-500 mt-1">A reason is required before you can reject.</p>
+                )}
+              </div>
+
+              {/* Confirm rejection — only shown once reason is typed */}
+              {hasReason && (
+                <button
+                  onClick={confirmReject}
+                  disabled={submitting}
+                  className="btn-red w-full py-3 disabled:opacity-60"
+                >
+                  {submitting ? 'Sending rejection…' : 'Confirm Rejection & Notify Patient'}
+                </button>
+              )}
+
+              <div className="border-t border-gray-100 pt-4 flex gap-3">
+                <button onClick={closeReject} disabled={submitting} className="btn-outline flex-1">
+                  Cancel
+                </button>
+                <button onClick={approveInstead} disabled={submitting} className="btn-green flex-1">
+                  {submitting ? '…' : '✓ Approve Instead'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout></RouteGuard>
   );
 }
@@ -167,7 +250,7 @@ export function PatientAppts() {
                 <button key={a._id} onClick={() => setSelected(a)} className={`w-full text-left card hover:border-brand transition-all ${selected?._id === a._id ? 'border-brand' : ''}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700 text-sm flex-shrink-0">{a.doctor?.name?.[0]}</div>
-                    <div className="flex-1 min-w-0"><p className="font-medium text-sm text-gray-900">Dr. {a.doctor?.name}</p><p className="text-xs text-gray-500">{new Date(a.appointmentDate).toLocaleDateString('en-AU')} · {a.appointmentTime}</p></div>
+                    <div className="flex-1 min-w-0"><p className="font-medium text-sm text-gray-900">{a.doctor?.name}</p><p className="text-xs text-gray-500">{new Date(a.appointmentDate).toLocaleDateString('en-AU')} · {a.appointmentTime}</p></div>
                     <span className={`badge ${SC[a.status]}`}>{a.status}</span>
                   </div>
                 </button>
@@ -179,7 +262,7 @@ export function PatientAppts() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between"><h3 className="font-semibold text-gray-900">Details</h3><button onClick={() => setSelected(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={14} /></button></div>
                 <div className="space-y-2 text-sm">
-                  {[['Doctor', `Dr. ${selected.doctor?.name}`], ['Date', new Date(selected.appointmentDate).toLocaleDateString('en-AU', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })], ['Time', selected.appointmentTime], ['Type', selected.type], ['Status', selected.status], ['Fee', `$${selected.fee} AUD`]].map(([k, v]) => (
+                  {[['Doctor', `${selected.doctor?.name}`], ['Date', new Date(selected.appointmentDate).toLocaleDateString('en-AU', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })], ['Time', selected.appointmentTime], ['Type', selected.type], ['Status', selected.status], ['Fee', `$${selected.fee} AUD`]].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-1.5 border-b border-gray-50"><span className="text-gray-500">{k}</span><span className="font-medium capitalize">{v}</span></div>
                   ))}
                   {selected.symptoms && <div className="py-1.5 border-b border-gray-50"><p className="text-gray-500 text-xs mb-0.5">Symptoms</p><p className="font-medium">{selected.symptoms}</p></div>}
@@ -220,7 +303,7 @@ export function PatientPrescriptions() {
             <div key={a._id} className="card">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center font-bold text-blue-700">{a.doctor?.name?.[0]}</div>
-                <div><p className="font-semibold text-gray-900">Dr. {a.doctor?.name}</p><p className="text-xs text-gray-500">{new Date(a.appointmentDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+                <div><p className="font-semibold text-gray-900">{a.doctor?.name}</p><p className="text-xs text-gray-500">{new Date(a.appointmentDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
                 <span className="badge-green ml-auto">✓ Issued</span>
               </div>
               <div className="space-y-2">
@@ -418,7 +501,7 @@ export function AdminDoctors() {
             <div key={d._id} className={`card ${!d.isApproved ? 'border-amber-200' : ''}`}>
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-11 h-11 rounded-xl bg-brand/10 flex items-center justify-center font-bold text-brand text-lg flex-shrink-0">{d.user?.name?.[0]}</div>
-                <div className="flex-1 min-w-0"><p className="font-semibold text-gray-900 text-sm">Dr. {d.user?.name}</p><p className="text-xs text-gray-500 truncate">{d.user?.email}</p></div>
+                <div className="flex-1 min-w-0"><p className="font-semibold text-gray-900 text-sm">{d.user?.name}</p><p className="text-xs text-gray-500 truncate">{d.user?.email}</p></div>
                 <span className={`badge flex-shrink-0 ${d.isApproved ? 'badge-green' : 'badge-amber'}`}>{d.isApproved ? 'Approved' : 'Pending'}</span>
               </div>
               <div className="flex flex-wrap gap-1 mb-3">{d.specialties?.slice(0, 2).map((s: string) => <span key={s} className="badge-green text-xs">{s}</span>)}</div>
@@ -456,7 +539,7 @@ export function AdminAppointments() {
                 appts.map(a => (
                   <tr key={a._id} className="hover:bg-gray-50">
                     <td className="px-5 py-4 text-sm font-medium text-gray-900">{a.patient?.name}</td>
-                    <td className="px-5 py-4 text-sm text-gray-600">Dr. {a.doctor?.name}</td>
+                    <td className="px-5 py-4 text-sm text-gray-600">{a.doctor?.name}</td>
                     <td className="px-5 py-4"><p className="text-sm text-gray-900">{new Date(a.appointmentDate).toLocaleDateString('en-AU')}</p><p className="text-xs text-gray-500">{a.appointmentTime}</p></td>
                     <td className="px-5 py-4 text-sm text-gray-600">{a.type === 'video' ? '📹 Video' : '🏥 In-Person'}</td>
                     <td className="px-5 py-4"><span className={`badge ${SC[a.status]}`}>{a.status}</span></td>

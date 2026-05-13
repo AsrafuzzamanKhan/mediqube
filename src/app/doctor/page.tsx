@@ -46,7 +46,7 @@ export default function DoctorDashboard() {
           <div className="bg-gradient-to-br from-blue-700 to-blue-900 rounded-2xl p-6 text-white">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold">Welcome, Dr. {user?.name?.split(' ').slice(-1)[0]}! 👨‍⚕️</h1>
+                <h1 className="text-2xl font-bold">Welcome,{user?.name?.split(' ').slice(-1)[0]}! 👨‍⚕️</h1>
                 <p className="text-blue-200 mt-1 text-sm">
                   {new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>

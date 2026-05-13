@@ -125,7 +125,7 @@ export default function PatientDashboard() {
                       {a.doctor?.name?.[0]?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm">Dr. {a.doctor?.name}</p>
+                      <p className="font-semibold text-gray-900 text-sm">{a.doctor?.name}</p>
                       <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
                         <span>{new Date(a.appointmentDate).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
                         <span>·</span>
@@ -170,7 +170,7 @@ export default function PatientDashboard() {
                       <FileText size={16} className="text-green-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm">Dr. {a.doctor?.name}</p>
+                      <p className="font-semibold text-gray-900 text-sm">{a.doctor?.name}</p>
                       <p className="text-xs text-gray-500">
                         {a.prescription.medications?.length || 0} medication(s) · {new Date(a.prescription.issuedAt).toLocaleDateString('en-AU')}
                       </p>

@@ -26,7 +26,7 @@ export default function AIChatPage() {
     role: 'assistant',
     content: "👋 Hi! I'm your MediQube AI assistant. Tell me your symptoms and I'll help you find the right doctor. What's bothering you today?",
   }]);
-  const [input, setInput]     = useState('');
+  const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const chatEnd = useRef<HTMLDivElement>(null);
   const scrollDown = () => setTimeout(() => chatEnd.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -45,7 +45,7 @@ export default function AIChatPage() {
       const specialty = res.data.data.suggestedSpecialty;
       if (specialty) {
         setSuggestedSpecialty(specialty);
-        doctorAPI.getAll({ specialty, limit: 3 }).then(r => setSuggestedDoctors(r.data.data)).catch(() => {});
+        doctorAPI.getAll({ specialty, limit: 3 }).then(r => setSuggestedDoctors(r.data.data)).catch(() => { });
       }
       scrollDown();
     } catch {
@@ -58,12 +58,12 @@ export default function AIChatPage() {
   const [suggestedDoctors, setSuggestedDoctors] = useState<any[]>([]);
 
   // ── Upload state ───────────────────────────────────────
-  const [text, setText]             = useState('');
-  const [analysing, setAnalysing]   = useState(false);
-  const [result, setResult]         = useState<any>(null);
+  const [text, setText] = useState('');
+  const [analysing, setAnalysing] = useState(false);
+  const [result, setResult] = useState<any>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview]   = useState<string>('');
-  const [dragging, setDragging]         = useState(false);
+  const [filePreview, setFilePreview] = useState<string>('');
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processFile = (file: File) => {
@@ -119,7 +119,7 @@ export default function AIChatPage() {
 
       if (uploadedFile) {
         const dataUrl = await fileToBase64(uploadedFile);
-        const base64  = dataUrl.split(',')[1];
+        const base64 = dataUrl.split(',')[1];
         if (uploadedFile.type === 'application/pdf') {
           payload = { pdfBase64: base64 };
         } else {
@@ -141,14 +141,14 @@ export default function AIChatPage() {
 
   const urgencyConfig: Record<string, { badge: string; icon: any; text: string }> = {
     routine: { badge: 'badge-green', icon: CheckCircle, text: 'Routine — book when convenient' },
-    soon:    { badge: 'badge-amber', icon: AlertCircle, text: 'See a doctor within a week' },
-    urgent:  { badge: 'badge-red',   icon: AlertCircle, text: 'Urgent — see a doctor soon' },
+    soon: { badge: 'badge-amber', icon: AlertCircle, text: 'See a doctor within a week' },
+    urgent: { badge: 'badge-red', icon: AlertCircle, text: 'Urgent — see a doctor soon' },
   };
 
   return (
-    <RouteGuard allowedRoles={['patient']}>
-      <DashboardLayout role="patient">
-        <div className="space-y-6">
+    <RouteGuard allowedRoles={['patient']} >
+      <DashboardLayout role="patient" >
+        <div className="space-y-6 ">
           <div className="page-header">
             <h1 className="page-title flex items-center gap-2"><Bot className="text-brand" size={24} /> AI Health Assistant</h1>
             <p className="page-sub">Describe your symptoms or upload a prescription to find the right specialist</p>
@@ -156,7 +156,7 @@ export default function AIChatPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-            {([['chat','💬 Symptom Chat'], ['upload','📋 Analyse Prescription']] as const).map(([t, label]) => (
+            {([['chat', '💬 Symptom Chat'], ['upload', '📋 Analyse Prescription']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
                 {label}
@@ -167,7 +167,7 @@ export default function AIChatPage() {
           {/* ── CHAT TAB ─────────────────────────────────── */}
           {tab === 'chat' && (
             <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-white rounded-2xl shadow-card border border-gray-100 flex flex-col" style={{ height: 520 }}>
+              <div className="lg:col-span-2 bg-white rounded-2xl shadow-card border border-gray-100 flex flex-col" style={{ height: 300 }}>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {messages.map((m, i) => (
                     <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -218,8 +218,8 @@ export default function AIChatPage() {
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center text-brand font-bold text-sm flex-shrink-0">{d.user?.name?.[0]}</div>
                           <div>
-                            <p className="font-medium text-gray-900 text-sm">Dr. {d.user?.name}</p>
-                            <p className="text-xs text-gray-500">{d.specialties?.slice(0,2).join(', ')} · ⭐ {d.rating}</p>
+                            <p className="font-medium text-gray-900 text-sm">{d.user?.name}</p>
+                            <p className="text-xs text-gray-500">{d.specialties?.slice(0, 2).join(', ')} · ⭐ {d.rating}</p>
                           </div>
                         </div>
                         <Link href={`/patient/find-doctor?book=${d._id}`}
@@ -247,13 +247,12 @@ export default function AIChatPage() {
 
                 {/* ── File drop zone ── */}
                 <div
-                  className={`relative border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors mb-4 ${
-                    dragging
-                      ? 'border-brand bg-brand/5'
-                      : uploadedFile
+                  className={`relative border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors mb-4 ${dragging
+                    ? 'border-brand bg-brand/5'
+                    : uploadedFile
                       ? 'border-green-400 bg-green-50'
                       : 'border-gray-200 hover:border-brand hover:bg-gray-50'
-                  }`}
+                    }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
@@ -391,7 +390,7 @@ export default function AIChatPage() {
                           {result.matchingDoctors.map((d: any) => (
                             <div key={d._id} className="flex items-center justify-between border border-gray-100 rounded-xl p-3">
                               <div>
-                                <p className="font-medium text-sm text-gray-900">Dr. {d.user?.name}</p>
+                                <p className="font-medium text-sm text-gray-900">{d.user?.name}</p>
                                 <p className="text-xs text-gray-500">{d.specialties?.slice(0, 2).join(', ')}</p>
                               </div>
                               <Link href={`/patient/find-doctor?book=${d._id}`}
