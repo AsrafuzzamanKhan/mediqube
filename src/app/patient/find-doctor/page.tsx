@@ -9,6 +9,17 @@ import toast from 'react-hot-toast';
 
 const TIMES = ['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'];
 
+/** Returns true if a slot time has already passed on the given date. */
+function isPast(slot: string, date: string): boolean {
+  const today = new Date().toISOString().split('T')[0];
+  if (date !== today) return false;
+  const [time, period] = slot.split(' ');
+  const [h, m] = time.split(':').map(Number);
+  const hours24 = period === 'PM' && h !== 12 ? h + 12 : period === 'AM' && h === 12 ? 0 : h;
+  const slot$ = new Date(); slot$.setHours(hours24, m, 0, 0);
+  return slot$ <= new Date();
+}
+
 function Content() {
   const params = useSearchParams();
   const [doctors, setDoctors] = useState<any[]>([]);
@@ -20,11 +31,30 @@ function Content() {
   const [selected, setSelected] = useState<any>(null);
   const [booking, setBooking] = useState({ appointmentDate: '', appointmentTime: '', type: 'video', symptoms: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const bookParam = params.get('book');
+
+  // Fetch already-booked slots whenever doctor or date changes
+  useEffect(() => {
+    if (!selected || !booking.appointmentDate) { setBookedSlots([]); return; }
+    setSlotsLoading(true);
+    apptAPI.getSlots(selected.user._id, booking.appointmentDate)
+      .then(r => setBookedSlots(r.data.data))
+      .catch(() => setBookedSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [selected?._id, booking.appointmentDate]);
+
+  // Clear the chosen time if it becomes disabled after a date change
+  useEffect(() => {
+    if (!booking.appointmentTime) return;
+    const disabled = bookedSlots.includes(booking.appointmentTime) || isPast(booking.appointmentTime, booking.appointmentDate);
+    if (disabled) setBooking(b => ({ ...b, appointmentTime: '' }));
+  }, [bookedSlots, booking.appointmentDate]);
 
   useEffect(() => { doctorAPI.specialties().then(r => setSpecialties(r.data.data)); }, []);
 
@@ -199,15 +229,41 @@ function Content() {
               </div>
               {/* Time */}
               <div>
-                <label className="label"><Clock size={13} className="inline mr-1" />Time</label>
+                <label className="label">
+                  <Clock size={13} className="inline mr-1" />Time
+                  {slotsLoading && <span className="ml-2 text-xs text-gray-400">Checking availability…</span>}
+                </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {TIMES.map(t => (
-                    <button key={t} onClick={() => setBooking(b => ({ ...b, appointmentTime: t }))}
-                      className={`py-2 rounded-xl text-xs font-medium border transition-colors ${booking.appointmentTime === t ? 'bg-brand text-white border-brand' : 'border-gray-200 text-gray-600 hover:border-brand hover:text-brand'}`}>
-                      {t}
-                    </button>
-                  ))}
+                  {TIMES.map(t => {
+                    const past    = isPast(t, booking.appointmentDate);
+                    const booked  = bookedSlots.includes(t);
+                    const disabled = !booking.appointmentDate || past || booked;
+                    const selected_ = booking.appointmentTime === t;
+                    return (
+                      <button
+                        key={t}
+                        disabled={disabled}
+                        onClick={() => !disabled && setBooking(b => ({ ...b, appointmentTime: t }))}
+                        title={past ? 'Time already passed' : booked ? 'Already booked' : ''}
+                        className={`py-2 rounded-xl text-xs font-medium border transition-colors relative
+                          ${disabled
+                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                            : selected_
+                              ? 'bg-brand text-white border-brand'
+                              : 'border-gray-200 text-gray-600 hover:border-brand hover:text-brand'
+                          }`}
+                      >
+                        {t}
+                        {booked && !past && (
+                          <span className="block text-[10px] leading-none mt-0.5 text-gray-300">Booked</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+                {!booking.appointmentDate && (
+                  <p className="text-xs text-gray-400 mt-1.5">Select a date to see available slots</p>
+                )}
               </div>
               {/* Symptoms */}
               <div>

@@ -51,9 +51,12 @@ export const apptAPI = {
   book: (d: any) => api.post('/appointments', d),
   getMy: (p?: any) => api.get('/appointments', { params: p }),
   getOne: (id: string) => api.get(`/appointments/${id}`),
+  getByRoom: (roomId: string) => api.get(`/appointments/by-room/${roomId}`),
+  getSlots: (doctorId: string, date: string) => api.get('/appointments/slots', { params: { doctorId, date } }),
   updateStatus: (id: string, d: any) => api.put(`/appointments/${id}/status`, d),
   addPresc: (id: string, d: any) => api.put(`/appointments/${id}/prescription`, d),
   cancel: (id: string) => api.put(`/appointments/${id}/cancel`),
+  rate: (id: string, d: { rating: number; comment?: string }) => api.put(`/appointments/${id}/rate`, d),
   dashboard: () => api.get('/appointments/doctor/dashboard'),
   adminAll: (p?: any) => api.get('/appointments/admin/all', { params: p }),
   getDoctorDashboard: function () {
