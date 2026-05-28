@@ -116,6 +116,9 @@ export const userAPI = {
   getPatient: () => api.get('/users/patient-profile'),
   updatePatient: (d: any) => api.put('/users/patient-profile', d),
 };
+export const zegoAPI = {
+  getToken: (roomId: string) => api.post('/zego/token', { roomId }),
+};
 
 // Alias for backward compatibility
 export const useAuthStore = useAuth;

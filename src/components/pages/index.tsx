@@ -149,7 +149,7 @@ const SPECS = ['General Practitioner', 'Cardiologist', 'Dermatologist', 'Pediatr
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export function DoctorProfile() {
-  const [form, setForm] = useState<any>({ specialties: [], qualifications: [], experience: 0, bio: '', consultationFee: 0, videoFee: 0, availableSlots: [], clinicAddress: { street: '', suburb: '', state: '', postcode: '' } });
+  const [form, setForm] = useState<any>({ specialties: [], qualifications: [], experience: 0, bio: '', consultationFee: 0, videoFee: 0, availableSlots: [], providerNumber: '', clinicAddress: { street: '', suburb: '', state: '', postcode: '' } });
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -179,6 +179,11 @@ export function DoctorProfile() {
                 <div><label className="label">Experience (years)</label><input type="number" value={form.experience} onChange={e => setForm((p: any) => ({ ...p, experience: +e.target.value }))} className="input" /></div>
                 <div><label className="label">In-Person Fee ($)</label><input type="number" value={form.consultationFee} onChange={e => setForm((p: any) => ({ ...p, consultationFee: +e.target.value }))} className="input" /></div>
                 <div><label className="label">Video Fee ($)</label><input type="number" value={form.videoFee} onChange={e => setForm((p: any) => ({ ...p, videoFee: +e.target.value }))} className="input" /></div>
+                <div>
+                  <label className="label">Medicare Provider Number</label>
+                  <input value={form.providerNumber || ''} onChange={e => setForm((p: any) => ({ ...p, providerNumber: e.target.value }))} placeholder="e.g. 2111111J" className="input" maxLength={8} />
+                  <p className="text-xs text-gray-400 mt-1">Australian 8-character provider number</p>
+                </div>
                 <div className="col-span-2"><label className="label">Bio</label><textarea value={form.bio} onChange={e => setForm((p: any) => ({ ...p, bio: e.target.value }))} rows={3} className="input resize-none" /></div>
               </div>
             )

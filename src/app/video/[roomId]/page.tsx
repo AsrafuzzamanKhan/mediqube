@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth, apptAPI } from '@/lib/store';
+import { useAuth, apptAPI, zegoAPI } from '@/lib/store';
 import { ArrowLeft, Loader2, Star, X } from 'lucide-react';
 
 const HEADER_H = 56;
@@ -77,7 +77,7 @@ function RatingModal({
             Rate your consultation
           </h2>
           <p style={{ color: '#9ca3af', fontSize: 14, margin: 0 }}>
-            with Dr. {appt.doctor.name}
+            with {appt.doctor.name}
           </p>
         </div>
 
@@ -187,28 +187,49 @@ export default function VideoCallPage() {
 
   useEffect(() => {
     if (!user || !roomId) return;
-    if (zpRef.current) return;
 
     const appId = parseInt(process.env.NEXT_PUBLIC_ZEGO_APP_ID || '0');
-    const secret = process.env.NEXT_PUBLIC_ZEGO_SERVER_SECRET || '';
-
-    if (!appId || !secret) {
-      setErrorMsg('ZegoCloud credentials missing — add NEXT_PUBLIC_ZEGO_APP_ID and NEXT_PUBLIC_ZEGO_SERVER_SECRET to .env.local');
+    if (!appId) {
+      setErrorMsg('ZegoCloud App ID missing — add NEXT_PUBLIC_ZEGO_APP_ID to .env.local');
       setPhase('error');
       return;
     }
 
-    const sentinel = Symbol();
-    zpRef.current = sentinel as any;
+    let cancelled = false;
+    let zpInstance: any = null;
 
-    import('@zegocloud/zego-uikit-prebuilt')
-      .then(({ ZegoUIKitPrebuilt }) => {
-        if (zpRef.current !== sentinel) return;
+    Promise.all([
+      import('@zegocloud/zego-uikit-prebuilt'),
+      zegoAPI.getToken(roomId as string),
+    ])
+      .then(([{ ZegoUIKitPrebuilt }, tokenRes]) => {
+        if (cancelled) return;
 
-        const token = ZegoUIKitPrebuilt.generateKitTokenForTest(
-          appId, secret, roomId as string, user._id, user.name
+        const serverSecret = process.env.NEXT_PUBLIC_ZEGO_SERVER_SECRET || '';
+        const { kitToken: serverKitToken, userId, userName } = tokenRes.data.data;
+        const testKitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+          appId, serverSecret, roomId as string, userId, userName
         );
-        const zp = ZegoUIKitPrebuilt.create(token);
+
+        // Decode and compare binary structure of both tokens
+        const decodeToken = (t: string) => {
+          const token04 = t.split('#')[0].substring(2); // strip '04'
+          const bin = Uint8Array.from(atob(token04), c => c.charCodeAt(0));
+          const expire = ((bin[4]<<24)|(bin[5]<<16)|(bin[6]<<8)|bin[7]) >>> 0;
+          const ivLen = (bin[8]<<8)|bin[9];
+          const iv = String.fromCharCode(...bin.slice(10, 10+ivLen));
+          const cipherLen = (bin[26]<<8)|bin[27];
+          return { expire, ivLen, iv, cipherLen, totalBinLen: bin.length };
+        };
+        console.log('[ZEGO] SERVER token structure:', decodeToken(serverKitToken));
+        console.log('[ZEGO] TEST   token structure:', decodeToken(testKitToken));
+        console.log('[ZEGO] server meta:', JSON.parse(atob(serverKitToken?.split('#')[1] || 'e30=')));
+        console.log('[ZEGO] test   meta:', JSON.parse(atob(testKitToken?.split('#')[1] || 'e30=')));
+
+        // Switch to test token to verify, then we'll debug server token
+        const kitToken = testKitToken;
+        const zp = ZegoUIKitPrebuilt.create(kitToken);
+        zpInstance = zp;
         zpRef.current = zp;
 
         setPhase('joined');
@@ -226,22 +247,22 @@ export default function VideoCallPage() {
           showTextChat: false,
           showUserList: false,
           maxUsers: 2,
-          onLeaveRoom: handleLeave,
+          onLeaveRoom: () => handleLeaveRef.current(),
         });
       })
       .catch(err => {
-        if (zpRef.current !== sentinel) return;
+        if (cancelled) return;
         console.error('ZegoCloud error:', err);
         setErrorMsg(err?.message || 'Failed to load ZegoCloud');
         setPhase('error');
-        zpRef.current = null;
       });
 
     return () => {
-      const current = zpRef.current;
+      cancelled = true;
       zpRef.current = null;
-      if (current && current !== sentinel) {
-        try { (current as any).leaveRoom?.(); } catch {}
+      if (zpInstance) {
+        try { zpInstance.leaveRoom?.(); } catch {}
+        zpInstance = null;
       }
     };
   }, [user?._id, roomId]);
